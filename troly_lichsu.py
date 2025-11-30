@@ -3,6 +3,14 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 import streamlit.components.v1 as components
+from openai import OpenAI
+import os
+
+# ======================
+# 🔐 AI KEY (ĐẶT Ở ĐÂY)
+# ======================
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# hoặc: client = OpenAI(api_key="sk-xxxx")
 
 # ======================
 # ⚙️ CẤU HÌNH TRANG
@@ -16,11 +24,12 @@ if "audio_unlocked" not in st.session_state:
     st.session_state["audio_unlocked"] = False
 
 st.title("📚 TRỢ LÝ LỊCH SỬ VIỆT NAM")
-st.write("👉 Bấm *BẬT ÂM THANH* (chỉ 1 lần), sau đó nhập câu hỏi rồi bấm *Trả lời*.")
-st.write("📱 Trên hệ điều hành IOS, bạn cần bấm nút ▶ để nghe giọng nói (quy định của Safari).")
-st.write("📱 Trên hệ điều hành android,máy tính bảng,laptop,máy tính bàn không cần bấm nút ▶ để nghe vì nó tự nói .")
+st.write("👉 Bấm BẬT ÂM THANH (chỉ 1 lần).")
+st.write("📱 iPhone: phải bấm ▶ để nghe.")
+st.write("📱 Android/PC: tự phát âm thanh.")
+
 # ======================
-# 🔓 NÚT BẬT ÂM THANH
+# 🔧 NÚT BẬT ÂM THANH
 # ======================
 if st.button("🔊 BẬT ÂM THANH (1 lần)"):
     js = """
@@ -43,26 +52,20 @@ if st.button("🔊 BẬT ÂM THANH (1 lần)"):
     st.success("Âm thanh đã mở khoá!")
 
 # ======================
-# 📜 DỮ LIỆU LỊCH SỬ
+# 🤖 HÀM AI TRẢ LỜI
 # ======================
-lich_su_data = {
-    "trưng trắc": "Hai Bà Trưng khởi nghĩa chống quân Hán năm 40 sau Công Nguyên.",
-    "ngô quyền": "Ngô Quyền đánh bại quân Nam Hán trên sông Bạch Đằng năm 938.",
-    "lý thái tổ": "Năm 1010, Lý Thái Tổ dời đô về Thăng Long.",
-    "trần hưng đạo": "Trần Hưng Đạo ba lần đánh bại quân Nguyên – Mông.",
-    "lê lợi": "Lê Lợi lãnh đạo khởi nghĩa Lam Sơn và giành độc lập năm 1428."
-}
-
 def tra_loi_lich_su(cau_hoi: str):
     if not cau_hoi:
         return "Vui lòng nhập câu hỏi."
 
-    cau_hoi = cau_hoi.lower()
-    for key, value in lich_su_data.items():
-        if key in cau_hoi:
-            return value
-
-    return "Xin lỗi, tôi chưa có thông tin về câu hỏi này."
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Bạn là trợ lý lịch sử Việt Nam, trả lời chính xác và dễ hiểu."},
+            {"role": "user", "content": cau_hoi}
+        ]
+    )
+    return completion.choices[0].message["content"]
 
 # ======================
 # 💬 GIAO DIỆN
@@ -79,38 +82,31 @@ if st.button("📖 Trả lời"):
         gTTS(text=tra_loi, lang="vi").write_to_fp(mp3_fp)
         mp3_fp.seek(0)
         audio_b64 = base64.b64encode(mp3_fp.read()).decode()
-
-    except Exception as e:
+    except:
         st.error("Lỗi tạo giọng nói.")
         audio_b64 = None
 
-    # Phát âm thanh
     if audio_b64:
         unlocked = "true" if st.session_state["audio_unlocked"] else "false"
 
         audio_html = f"""
         <div id="tts"></div>
         <script>
-          (function(){{
-            const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-            const unlocked = {unlocked};
-            const audio = document.createElement('audio');
-            audio.src = "data:audio/mp3;base64,{audio_b64}";
-            audio.controls = true;
-            audio.playsInline = true;
-            document.getElementById("tts").appendChild(audio);
+            (function(){{
+                const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+                const unlocked = {unlocked};
+                const audio = document.createElement('audio');
+                audio.src = "data:audio/mp3;base64,{audio_b64}";
+                audio.controls = true;
+                audio.playsInline = true;
+                document.getElementById("tts").appendChild(audio);
 
-            if (!isIOS && unlocked) {{
-                audio.autoplay = true;
-                audio.play().catch(()=>{{}});
-            }}
+                if (!isIOS && unlocked) {{
+                    audio.autoplay = true;
+                    audio.play().catch(()=>{});
+                }}
         }})();
-    </script>
-    """
+        </script>
+        """
 
         components.html(audio_html, height=120)
-
-        if st.session_state["audio_unlocked"]:
-            st.info("🔊 Tự động phát (Android/PC).")
-        else:
-            st.warning("⚠️ iPhone phải bấm ▶.")

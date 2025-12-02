@@ -114,3 +114,5 @@ if st.button("📖 Trả lời"):
             st.info("🔊 Tự động phát (Android/PC).")
         else:
             st.warning("⚠️ iPhone phải bấm ▶.")
+
+

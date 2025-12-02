@@ -4,13 +4,11 @@ from io import BytesIO
 import base64
 import streamlit.components.v1 as components
 from openai import OpenAI
-import os
 
 # ======================
-# 🔐 AI KEY (ĐẶT Ở ĐÂY)
+# 🌐 KẾT NỐI OPENAI
 # ======================
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-# hoặc: client = OpenAI(api_key="sk-xxxx")
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # ======================
 # ⚙️ CẤU HÌNH TRANG
@@ -18,18 +16,16 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 st.set_page_config(page_title="Trợ lý Lịch sử Việt Nam", layout="centered")
 
 # ======================
-# 🧠 KHỞI TẠO TRẠNG THÁI
+# 🧠 TRẠNG THÁI
 # ======================
 if "audio_unlocked" not in st.session_state:
     st.session_state["audio_unlocked"] = False
 
-st.title("📚 TRỢ LÝ LỊCH SỬ VIỆT NAM")
-st.write("👉 Bấm BẬT ÂM THANH (chỉ 1 lần).")
-st.write("📱 iPhone: phải bấm ▶ để nghe.")
-st.write("📱 Android/PC: tự phát âm thanh.")
+st.title("📚 TRỢ LÝ LỊCH SỬ VIỆT NAM (AI)")
+st.write("👉 Bấm *BẬT ÂM THANH*, sau đó nhập câu hỏi rồi bấm *Trả lời*.")
 
 # ======================
-# 🔧 NÚT BẬT ÂM THANH
+# 🔓 NÚT BẬT ÂM THANH
 # ======================
 if st.button("🔊 BẬT ÂM THANH (1 lần)"):
     js = """
@@ -52,20 +48,24 @@ if st.button("🔊 BẬT ÂM THANH (1 lần)"):
     st.success("Âm thanh đã mở khoá!")
 
 # ======================
-# 🤖 HÀM AI TRẢ LỜI
+# 🎓 HÀM TRẢ LỜI LỊCH SỬ BẰNG AI
 # ======================
-def tra_loi_lich_su(cau_hoi: str):
-    if not cau_hoi:
-        return "Vui lòng nhập câu hỏi."
+def tra_loi_AI(cau_hoi: str):
+    prompt_system = """
+    Bạn là trợ lý lịch sử Việt Nam. Trả lời chính xác, dễ hiểu, đầy đủ,
+    không bịa, chỉ dựa trên dữ kiện lịch sử thật.
+    """
 
-    completion = client.chat.completions.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Bạn là trợ lý lịch sử Việt Nam, trả lời chính xác và dễ hiểu."},
+            {"role": "system", "content": prompt_system},
             {"role": "user", "content": cau_hoi}
-        ]
+        ],
+        max_tokens=300
     )
-    return completion.choices[0].message["content"]
+
+    return response.choices[0].message.content
 
 # ======================
 # 💬 GIAO DIỆN
@@ -73,7 +73,11 @@ def tra_loi_lich_su(cau_hoi: str):
 cau_hoi = st.text_input("❓ Nhập câu hỏi lịch sử:")
 
 if st.button("📖 Trả lời"):
-    tra_loi = tra_loi_lich_su(cau_hoi)
+    if not cau_hoi.strip():
+        st.warning("Bạn chưa nhập câu hỏi!")
+        st.stop()
+
+    tra_loi = tra_loi_AI(cau_hoi)
     st.success(tra_loi)
 
     # Tạo giọng nói
@@ -86,26 +90,27 @@ if st.button("📖 Trả lời"):
         st.error("Lỗi tạo giọng nói.")
         audio_b64 = None
 
+    # Phát audio
     if audio_b64:
         unlocked = "true" if st.session_state["audio_unlocked"] else "false"
 
         audio_html = f"""
         <div id="tts"></div>
         <script>
-            (function(){{
-                const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-                const unlocked = {unlocked};
-                const audio = document.createElement('audio');
-                audio.src = "data:audio/mp3;base64,{audio_b64}";
-                audio.controls = true;
-                audio.playsInline = true;
-                document.getElementById("tts").appendChild(audio);
+          (function(){{
+            const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            const unlocked = {unlocked};
+            const audio = document.createElement('audio');
+            audio.src = "data:audio/mp3;base64,{audio_b64}";
+            audio.controls = true;
+            audio.playsInline = true;
+            document.getElementById("tts").appendChild(audio);
 
-                if (!isIOS && unlocked) {{
-                    audio.autoplay = true;
-                    audio.play().catch(()=>{});
-                }}
-        }})();
+            if (!isIOS && unlocked) {{
+                audio.autoplay = true;
+                audio.play().catch(()=>{{}});
+            }}
+          }})();
         </script>
         """
 

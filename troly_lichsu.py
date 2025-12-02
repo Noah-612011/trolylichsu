@@ -3,12 +3,6 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 import streamlit.components.v1 as components
-from openai import OpenAI
-
-# ======================
-# 🌐 KẾT NỐI OPENAI
-# ======================
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # ======================
 # ⚙️ CẤU HÌNH TRANG
@@ -16,14 +10,15 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="Trợ lý Lịch sử Việt Nam", layout="centered")
 
 # ======================
-# 🧠 TRẠNG THÁI
+# 🧠 KHỞI TẠO TRẠNG THÁI
 # ======================
 if "audio_unlocked" not in st.session_state:
     st.session_state["audio_unlocked"] = False
 
-st.title("📚 TRỢ LÝ LỊCH SỬ VIỆT NAM (AI)")
-st.write("👉 Bấm *BẬT ÂM THANH*, sau đó nhập câu hỏi rồi bấm *Trả lời*.")
-
+st.title("📚 TRỢ LÝ LỊCH SỬ VIỆT NAM")
+st.write("👉 Bấm *BẬT ÂM THANH* (chỉ 1 lần), sau đó nhập câu hỏi rồi bấm *Trả lời*.")
+st.write("📱 Trên hệ điều hành IOS, bạn cần bấm nút ▶ để nghe giọng nói (quy định của Safari).")
+st.write("📱 Trên hệ điều hành android,máy tính bảng,laptop,máy tính bàn không cần bấm nút ▶ để nghe vì nó tự nói .")
 # ======================
 # 🔓 NÚT BẬT ÂM THANH
 # ======================
@@ -48,24 +43,26 @@ if st.button("🔊 BẬT ÂM THANH (1 lần)"):
     st.success("Âm thanh đã mở khoá!")
 
 # ======================
-# 🎓 HÀM TRẢ LỜI LỊCH SỬ BẰNG AI
+# 📜 DỮ LIỆU LỊCH SỬ
 # ======================
-def tra_loi_AI(cau_hoi: str):
-    prompt_system = """
-    Bạn là trợ lý lịch sử Việt Nam. Trả lời chính xác, dễ hiểu, đầy đủ,
-    không bịa, chỉ dựa trên dữ kiện lịch sử thật.
-    """
+lich_su_data = {
+    "trưng trắc": "Hai Bà Trưng khởi nghĩa chống quân Hán năm 40 sau Công Nguyên.",
+    "ngô quyền": "Ngô Quyền đánh bại quân Nam Hán trên sông Bạch Đằng năm 938.",
+    "lý thái tổ": "Năm 1010, Lý Thái Tổ dời đô về Thăng Long.",
+    "trần hưng đạo": "Trần Hưng Đạo ba lần đánh bại quân Nguyên – Mông.",
+    "lê lợi": "Lê Lợi lãnh đạo khởi nghĩa Lam Sơn và giành độc lập năm 1428."
+}
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": prompt_system},
-            {"role": "user", "content": cau_hoi}
-        ],
-        max_tokens=300
-    )
+def tra_loi_lich_su(cau_hoi: str):
+    if not cau_hoi:
+        return "Vui lòng nhập câu hỏi."
 
-    return response.choices[0].message.content
+    cau_hoi = cau_hoi.lower()
+    for key, value in lich_su_data.items():
+        if key in cau_hoi:
+            return value
+
+    return "Xin lỗi, tôi chưa có thông tin về câu hỏi này."
 
 # ======================
 # 💬 GIAO DIỆN
@@ -73,11 +70,7 @@ def tra_loi_AI(cau_hoi: str):
 cau_hoi = st.text_input("❓ Nhập câu hỏi lịch sử:")
 
 if st.button("📖 Trả lời"):
-    if not cau_hoi.strip():
-        st.warning("Bạn chưa nhập câu hỏi!")
-        st.stop()
-
-    tra_loi = tra_loi_AI(cau_hoi)
+    tra_loi = tra_loi_lich_su(cau_hoi)
     st.success(tra_loi)
 
     # Tạo giọng nói
@@ -86,11 +79,12 @@ if st.button("📖 Trả lời"):
         gTTS(text=tra_loi, lang="vi").write_to_fp(mp3_fp)
         mp3_fp.seek(0)
         audio_b64 = base64.b64encode(mp3_fp.read()).decode()
-    except:
+
+    except Exception as e:
         st.error("Lỗi tạo giọng nói.")
         audio_b64 = None
 
-    # Phát audio
+    # Phát âm thanh
     if audio_b64:
         unlocked = "true" if st.session_state["audio_unlocked"] else "false"
 
@@ -110,8 +104,13 @@ if st.button("📖 Trả lời"):
                 audio.autoplay = true;
                 audio.play().catch(()=>{{}});
             }}
-          }})();
-        </script>
-        """
+        }})();
+    </script>
+    """
 
         components.html(audio_html, height=120)
+
+        if st.session_state["audio_unlocked"]:
+            st.info("🔊 Tự động phát (Android/PC).")
+        else:
+            st.warning("⚠️ iPhone phải bấm ▶.")

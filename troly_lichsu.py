@@ -5,6 +5,16 @@ import base64
 import streamlit.components.v1 as components
 
 # ======================
+# 🔍 TỪ KHOÁ LỊCH SỬ
+# ======================
+history_keywords = ["lịch sử", "chiến tranh", "khởi nghĩa", "cách mạng", "triều đại", "vua", "thế chiến", "cổ đại", "trung đại", "hiện đại", "di tích", "danh lam", "quân", "trận", "đế quốc"]
+
+# ======================
+# 🧠 HÀM KIỂM TRA CÂU HỎI
+# ======================
+def is_history_question(question):
+
+# ======================
 # ⚙️ CẤU HÌNH TRANG
 # ======================
 st.set_page_config(page_title="Trợ lý Lịch sử Việt Nam", layout="centered")
